@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
 
   GtkWidget *window;
   GtkWidget *table;
-
+  GtkWidget *window1;
   GtkWidget *label1;
   GtkWidget *label2;
   GtkWidget *notifi;
