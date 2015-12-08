@@ -8,17 +8,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include "defs10.h"
+#include <time.h>
+#include "user.h"
 int conn_sock;
 char buff[1024];
-
-typedef struct
-{
-    int flag;
-    int x;
-    int y;
-}nuocdi;
-nuocdi gogo;
-char color[BOARD_SIZE]= {
+char Recolor[BOARD_SIZE]= {
         0, 0, 0, 0, 0, 0, 0, 0, 0,
         7, 7, 7, 7, 7, 7, 7, 7, 7,
         7, 0, 7, 7, 7, 7, 7, 0, 7,
@@ -30,7 +24,7 @@ char color[BOARD_SIZE]= {
         7, 7, 7, 7, 7, 7, 7, 7, 7,
         1, 1, 1, 1, 1, 1, 1, 1, 1
 };
-char piece[BOARD_SIZE]= {
+char Repiece[BOARD_SIZE]= {
         5, 3, 2, 1, 6, 1, 2, 3, 5,
         7, 7, 7, 7, 7, 7, 7, 7, 7,
         7, 4, 7, 7, 7, 7, 7, 4, 7,
@@ -42,6 +36,8 @@ char piece[BOARD_SIZE]= {
         7, 7, 7, 7, 7, 7, 7, 7, 7,
         5, 3, 2, 1, 6, 1, 2, 3, 5
 };
+char color[BOARD_SIZE];
+char piece[BOARD_SIZE];
 
 unsigned long   nodecount, brandtotal = 0, gencount = 0;
 char    ply, side, xside, computerside=0;
@@ -52,8 +48,7 @@ hist_rec hist_dat[HIST_STACK];
 short   hdp;
 void Gen(void);
  
-short GetHumanMove(int from,int t)
-{
+short GetHumanMove(int from,int t){
     int revedBytes;
     static short x = 4, y = 5;
     long int i;
@@ -63,22 +58,72 @@ short GetHumanMove(int from,int t)
     while(1){
     //nhan du lieu tu client
     revedBytes = recv(conn_sock,buff,1024,0);
+    if(buff[0] == 3){
     buff[revedBytes] = '\0';
-    from = (int)buff[0];
-    t = (int)buff[1];
+    from = (int)buff[1];
+    t = (int)buff[2];
     if(color[from]==side){
-        newmove.from = from; newmove.dest = t;
-        for (i=gen_begin[ply]; i<gen_end[ply]; i++)
-        if (gen_dat[i].m.from==newmove.from && gen_dat[i].m.dest==newmove.dest){
-            return 0;
+                newmove.from = from; newmove.dest = t;
+                for (i=gen_begin[ply]; i<gen_end[ply]; i++)
+                if (gen_dat[i].m.from==newmove.from && gen_dat[i].m.dest==newmove.dest) return 0;
             }
+        buff[0] = 3;
+        buff[1] = 0;
+        buff[2] = '\0';
+        send(conn_sock,buff,1024,0);//tra ve loi
         }
-    buff[0] = 0;
-    buff[1] = '\0';
-    send(conn_sock,buff,1024,0);//tra ve loi
     }
 }
 
+int findAcc(char name[30]){
+    FILE *f;
+    char filename[] = "data.txt";
+    f=fopen(filename,"r");
+    char buf[81];
+    char str[30];
+    char *token;
+    while (!feof(f))
+    {
+    if (fgets(buf,81,f) != NULL ){
+    buf[strlen(buf)] = '\0'; // eat the newline fgets() stores
+    token=strtok(buf,"\t");
+    strcpy(str,token);
+    printf("%s-%s\n",name,str);
+    if((strcmp(name,str))==0){
+        fclose(f);
+        return 1;
+        }
+    }
+  }
+  fclose(f);
+  return 0;
+}
+int checklogin(char name[30],char pass[30]){
+    FILE *f;
+    char filename[] = "data.txt";
+    f=fopen(filename,"r");
+    char buf[81];
+    char str[30];
+    char password[30];
+    char *token;
+    while (!feof(f))
+    {
+    if (fgets(buf,81,f) != NULL ){
+    buf[strlen(buf)] = '\0'; // eat the newline fgets() stores
+    token=strtok(buf,"\t");
+    strcpy(str,token);
+    if((strcmp(name,str))==0){
+        token = strtok(NULL,"\n");
+        strcpy(password,token);
+        if(strcmp(password,pass)==0){fclose(f);return 1;}
+        fclose(f);
+        return 0;
+        }
+    }
+  }
+  fclose(f);
+  return -1;
+}
 short offset[7][8] =
         {{-1, 1,13, 0, 0, 0, 0, 0},     /* PAWN {for DARK side} */
         {-12,-14,12,14,0,0,0,0},        /* BISHOP */
@@ -131,11 +176,19 @@ short legalposition[90] =
 short maskpiece[7] = {8, 2, 4, 1, 1, 1, 2},
     knightcheck[8] = {1,-1,-9,-9,-1,1,9,9},
     elephancheck[8] = {-10,-8,8,10,0,0,0,0},
-    kingpalace[9] = {3,4,5,12,13,14,21,22,23};
+    kingpalace[9] = {3,4,5,12,13,14,21,22,23},
+    kingclient[9] = {66,67,68,75,76,77,84,85,86};
  
  
 void InitGen(void)
 {
+    int i;
+    for (i = 0; i < 90; i++)
+    {
+        color[i] = Recolor[i];
+        piece[i] = Repiece[i];
+        /* code */
+    }
     gen_begin[0] = 0; ply = 0; hdp = 0;
 }
 //Kiem tra doi mat tuong
@@ -166,9 +219,7 @@ void Gen_push(short from, short dest)
 void Gen(void)
 {
     short i, j, k, n, p, x, y, t, fcannon;
- 
     gen_end[ply] = gen_begin[ply];
- 
     for(i=0; i < BOARD_SIZE; i++)
         if (color[i]==side) {
             p = piece[i];
@@ -258,7 +309,6 @@ short AlphaBeta(short alpha, short beta, short depth)
     best = -INFINITY;
     for (i=gen_begin[ply]; i<gen_end[ply] && best<beta; i++) {
         if (best > alpha) alpha = best;
- 
         if (MakeMove(gen_dat[i].m)) value = 1000-ply;
         else value = -AlphaBeta(-beta, -alpha, depth-1);
         UnMakeMove();
@@ -276,35 +326,33 @@ void ComputerThink(void)
     best = AlphaBeta(-INFINITY, INFINITY, MAX_PLY);
     //printf("%ld\n",nodecount);
 }
-void todo(){
-	InitGen();
-	if (side == computerside) ComputerThink();
-        else if (GetHumanMove(0,1));
-        side = xside; xside = 1-xside;
-    printf("%d:%d\n",newmove.from,newmove.dest);
-    UpdateNewMove();
-}
 
-void sig_chld(int signo)
-{
-pid_t pid;
-int stat;
-while((pid = waitpid(-1, &stat, WNOHANG))>0)
-printf("child %d terminated\n", pid);
-return;
+void sig_chld(int signo){
+    pid_t pid;
+    int stat;
+    while((pid = waitpid(-1, &stat, WNOHANG))>0)
+    printf("child %d terminated\n", pid);
+    return;
 }
 int check_thang(){
-    int i;
-return 1;
+    int k;
+    int i=0;
+    for (i=0;i<9;i++){
+        k = kingpalace[i];
+        if(piece[k]==KING) return 0;
+    }
+    return 1;
 }
 int check_thua(){
-return 0;
+    int k;
+    int i=0;
+    for (i=0;i<9;i++){
+        k = kingclient[i];
+        if(piece[k]==KING) return 0;
+    }
+    return 1;
 }
-
-
-
-int main()
-{
+int main(){
 int listen_sock;
 int server_len, client_len;
 struct sockaddr_in server_address;
@@ -350,57 +398,115 @@ if(fork() == 0){
 	close(listen_sock);
     //thiet lap truyen nhan giu lieu lien tuc
 	int sentBytes,revedBytes,i;
-    while(1){
+    time_t start;
+    struct tm * timeinfo;
+    char name[30];
+    char pass[16];
+    struct userinfo acc1;
+    char s[2]="|";
+    char *token;
+    int flag;
+    char str_flag[3];
+    char filename[]="data.txt";
+    int stop = 0;
+    FILE *f;
+    FILE *result;
+    int login;
+    while((revedBytes = recv(conn_sock,buff,1024,0)) >= 0){
+        buff[revedBytes]='\0';
+        token = strtok(buff, s);
+        strcpy(str_flag,token);
+        flag=atoi(str_flag);
         //nhan va kiem tra co bao
-        revedBytes = recv(conn_sock,buff,1024,0);
-        switch(buff[0]){
+        switch(flag){
             case 0:
-            /// dang nhap
-            //lay du lieu
-            //kiem tra dang nhap
-            //gui ket qua cho client
-            printf("Dang nhap\n");
-            strcpy(buff,"Dang nhap");
-            sentBytes = send(conn_sock,buff,1024,0);
+                //kiem tra dang nhap neu dang nhap thang cong tra ve buff[0] = 5 
+                //neu khong dung tra ve buff[0]=4 va buff[1] la ma loi
+                printf("Dang nhap\n");
+                token =strtok(NULL,s);
+                strcpy(name,token);
+                token=strtok(NULL,s);
+                strcpy(pass,token);
+                login = checklogin(name,pass);
+                if(login==1){
+                result =fopen(name,"w");
+                buff[0] = 5;
+                sentBytes = send(conn_sock,buff,1024,0);
+                }else{
+                    buff[0] = 4;
+                    buff[1] = login;
+                    sentBytes = send(conn_sock,buff,1024,0);
+                }
             break;
             case 1: 
-            //dang ky
-            //lay du lieu
-            //kiem tra dang nhap
-            //gui ket qua cho client
-            printf("Dang ky\n");
-            strcpy(buff,"Dang ky");
-            sentBytes = send(conn_sock,buff,1024,0);
+                token =strtok(NULL,s);
+                strcpy(name,token);
+                token=strtok(NULL,s);
+                strcpy(pass,token);
+                if(findAcc(name)==1){
+                    buff[0] = 4;
+                    buff[1] = 1;
+                    buff[2] = '\0';
+                    sentBytes = send(conn_sock,buff,1024,0);
+                    break;
+                }
+                f =fopen(filename,"a");
+                fprintf(f, "%s\t%s\n",name,pass );
+                fclose(f);
+                buff[0] = 5;
+                buff[1] = '\0';
+                sentBytes = send(conn_sock,buff,1024,0);
             break;
             case 2:
                 side = 1 ;xside = 0;
+                time (&start );
+                timeinfo = localtime ( &start );
+                fprintf(result,"IP address is: %s\n", inet_ntoa(client_address.sin_addr));
+                fprintf (result,"time start :%s\n", asctime (timeinfo) );
                 InitGen();
-                    while(1){
-                            if(side == computerside){
-                                ComputerThink();
-                                printf("%d may choi\n",side);
-                                UpdateNewMove();
-                                buff[0] = newmove.from;
-                                buff[1] = newmove.dest;
-                                buff[2] = 0;
-                                buff[3] = '\0';
-                                //check thua tai day
-                                send(conn_sock,buff,1024,0);
-                            }
-                            else 
-                                if(GetHumanMove(0,1)==0){
-                                    UpdateNewMove();                        
-                                    buff[0] = 1;
-                                    buff[2] = 1;
-                                    buff[3] = '\0';
-                                    //check thang tai day
-                                    send(conn_sock,buff,1024,0);
-                                    //tra ve neu di thanh cong
-                                };
-
-                            side = xside; xside = 1-xside;
-                            printf("%d-%d-%d\n",side,newmove.from,newmove.dest);
-            	    }
+                while(1){
+                    if(side == computerside){
+                        ComputerThink();
+                        printf("%d may choi\n",side);
+                        UpdateNewMove();
+                        buff[0] = 3;
+                        buff[1] = newmove.from;
+                        buff[2] = newmove.dest;
+                        buff[3] = check_thua();stop = buff[3];
+                        buff[4] = '\0';
+                        send(conn_sock,buff,1024,0);
+                        if(stop == 1)  break;
+                    }
+                    else 
+                        if(GetHumanMove(0,1)==0){
+                        UpdateNewMove();
+                        printf("%d nguoi choi\n",side);                     
+                        buff[0] = 3;
+                        buff[1] = 1;
+                        buff[2] = 0;
+                        buff[3] = check_thang(); stop = buff[3];
+                        buff[4] = '\0';
+                        send(conn_sock,buff,1024,0);
+                        //tra ve neu di thanh cong
+                        if(stop == 1) break;
+                    };
+                    side = xside; xside = 1-xside;
+                    printf("%d-%d-%d\n",side,newmove.from,newmove.dest);
+            	}
+            printf("Dung choi\n");
+            time (&start );
+            timeinfo = localtime ( &start );
+            fprintf (result,"time end :%s\n", asctime (timeinfo));
+            fclose(result);
+            result = fopen(name,"r");
+            while(!feof(result)){
+                if (fgets(buff,81,result) != NULL ){
+                sentBytes=send(conn_sock,buff,1024,0);
+                }
+            }
+            buff[0] = 'Q';
+            buff[1] = '\0';
+            sentBytes=send(conn_sock,buff,1024,0);
             break;
             default:
             break;
