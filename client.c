@@ -52,6 +52,7 @@ GtkWidget *window1;
 
 int move = 91;
 int session = 0;
+int check_play = 0;
 FILE *fpt;
 GtkWidget *entry1;
 GtkWidget *entry2;
@@ -70,7 +71,7 @@ static void login_funtion(GtkButton *button, gpointer data){
   convertUserinfoToString(acc,buff);
   send(sockfd,buff,1024,0);
   recv(sockfd,buff,1024,0);
-  printf("%s\n",buff);
+ 
   if(buff[0] == 5){
     gtk_label_set_text(label_result,"Dang nhap thanh cong");
     session = 1;
@@ -275,6 +276,7 @@ static gboolean button_press_callback (GtkWidget *event_box,GdkEventButton *even
                 fprintf(fpt, "%s\n",buff);
                 }
                 fclose(fpt);
+                check_play = 0;
                 return TRUE;
               }         
               recv(sockfd,buff,1024,0);
@@ -295,6 +297,7 @@ static gboolean button_press_callback (GtkWidget *event_box,GdkEventButton *even
                 fprintf(fpt, "%s\n",buff);
                 }
                 fclose(fpt);
+                check_play = 0; 
                 return TRUE;
               }
           }
@@ -315,14 +318,15 @@ void singup_show(GtkWidget *widget, gpointer data) {
 }
 
 void play(GtkWidget *widget, gpointer data) {
-	if(session == 1){
+	if(session == 1&&check_play==0){
   acc.flag = 2;
   convertUserinfoToString(acc,buff);
   send(sockfd,buff,1024,0);
 	Broad = intBroad(fixed);gtk_widget_show_all(event_box);
+  check_play = 1;
   move = 91;
 	}else{
-    quick_message("ban chua dang nhap");
+    if(session==0) quick_message("ban chua dang nhap");
   }
 }
 

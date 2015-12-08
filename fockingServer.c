@@ -106,7 +106,7 @@ int checklogin(char name[30],char pass[30]){
     char str[30];
     char password[30];
     char *token;
-    while (!feof(f))
+    while(!feof(f))
     {
     if (fgets(buf,81,f) != NULL ){
     buf[strlen(buf)] = '\0'; // eat the newline fgets() stores
@@ -352,6 +352,32 @@ int check_thua(){
     }
     return 1;
 }
+char *indexChar(int i) //Tu xy xac dinh diem
+{
+    int temp;
+    int j;
+    char *nuoc;
+    nuoc = (char*) malloc (3);
+    temp = i%9;
+    j = (i-temp)/9;
+    j = 65 + j;
+    switch(piece[i]){
+        case KING : nuoc[0] = 'T';break;
+        case PAWN : nuoc[0] = 't';break;
+        case BISHOP : nuoc[0] = 'S';break;
+        case ELEPHAN : nuoc[0] = 'V';break;
+        case KNIGHT : nuoc[0] = 'M';break;
+        case CANNON : nuoc[0] = 'P';break;
+        case ROOK : nuoc[0] = 'X';break;
+        default:
+        nuoc[0]='Z';
+        break;
+    }
+    nuoc[1] = j;
+    nuoc[2] = temp+48;
+    nuoc[3] = '\0';
+    return nuoc;
+}
 int main(){
 int listen_sock;
 int server_len, client_len;
@@ -468,6 +494,7 @@ if(fork() == 0){
                     if(side == computerside){
                         ComputerThink();
                         printf("%d may choi\n",side);
+                        fprintf(result,"%s-%s\n",indexChar(newmove.from),indexChar(newmove.dest));
                         UpdateNewMove();
                         buff[0] = 3;
                         buff[1] = newmove.from;
@@ -479,6 +506,7 @@ if(fork() == 0){
                     }
                     else 
                         if(GetHumanMove(0,1)==0){
+                        fprintf(result,"%s-%s\t",indexChar(newmove.from),indexChar(newmove.dest));
                         UpdateNewMove();
                         printf("%d nguoi choi\n",side);                     
                         buff[0] = 3;
