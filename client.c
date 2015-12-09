@@ -273,7 +273,7 @@ static gboolean button_press_callback (GtkWidget *event_box,GdkEventButton *even
                 recvbyte = recv(sockfd,buff,1024,0);
                 buff[recvbyte+1] = '\0';
                 if(buff[0]=='Q') break;
-                fprintf(fpt, "%s\n",buff);
+                fprintf(fpt, "%s",buff);
                 }
                 fclose(fpt);
                 check_play = 0;
@@ -294,7 +294,7 @@ static gboolean button_press_callback (GtkWidget *event_box,GdkEventButton *even
                 recvbyte = recv(sockfd,buff,1024,0);
                 buff[recvbyte+1] = '\0';
                 if(buff[0]=='Q') break;
-                fprintf(fpt, "%s\n",buff);
+                fprintf(fpt, "%s",buff);
                 }
                 fclose(fpt);
                 check_play = 0; 
