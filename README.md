@@ -1,2 +1,2 @@
 # LTMang
-china chess via socket
+china chess via socket on ubuntu
